@@ -1,7 +1,10 @@
 'use strict';
-const moment = require('moment');
 const commons = require('../../jira-commons');
 
+/**
+ * Component which triggers whenever a new issue is created.
+ * @extends {Component}
+ */
 module.exports = {
 
     async tick(context) {
@@ -9,23 +12,21 @@ module.exports = {
         const { profileInfo: { apiUrl }, auth } = context;
         const { project } = context.properties;
 
-        let { createdTime } = await context.loadState();
-        const current = moment().utc().format('YYYY-MM-DD HH:mm');
-
-        if (!createdTime) {
-            createdTime = current;
-        }
+        const now = Date.now();
+        const nowMinusMinute = now - 60000;
 
         const params = {
-            maxResults: 100,
-            jql: `created >= "${createdTime}"`
+            maxResults: 1000,
+            jql: `created >= ${nowMinusMinute}`
         };
 
         if (project) {
             params.jql += ` AND project = "${project}"`;
         }
 
-        const issues = await commons.pager({
+        params.jql += ' ORDER BY created';
+
+        const issues = await commons.getAPINoPagination({
             endpoint: `${apiUrl}search`,
             credentials: auth,
             key: 'issues',
@@ -33,13 +34,10 @@ module.exports = {
         });
 
         if (Array.isArray(issues) && issues.length > 0) {
-            const promises = [];
-            issues.forEach(issue => {
-                promises.push(context.sendJson(issue, 'issue'));
-            });
-            await Promise.all(promises);
+            const issuesArr = issues.reverse();
+            for (const issue of issuesArr) {
+                await context.sendJson(issue, 'issue');
+            }
         }
-
-        return context.saveState({ createdTime: current });
     }
 };

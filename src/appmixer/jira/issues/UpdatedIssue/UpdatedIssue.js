@@ -1,7 +1,10 @@
 'use strict';
-const moment = require('moment');
 const commons = require('../../jira-commons');
 
+/**
+ * Component which triggers whenever an issue is updated.
+ * @extends {Component}
+ */
 module.exports = {
 
     async tick(context) {
@@ -9,37 +12,34 @@ module.exports = {
         const { profileInfo: { apiUrl }, auth } = context;
         const { project } = context.properties;
 
-        let { updatedTime } = await context.loadState();
-        const current = moment().utc().format('YYYY-MM-DD HH:mm');
-
-        if (!updatedTime) {
-            updatedTime = current;
-        }
+        const now = Date.now();
+        const nowMinusMinute = now - 60000;
 
         const params = {
-            maxResults: 100,
-            jql: `updated >= "${updatedTime}"`
+            maxResults: 1000,
+            jql: `updated >= ${nowMinusMinute} AND created < ${now}`
         };
 
         if (project) {
             params.jql += ` AND project = "${project}"`;
         }
 
-        const issues = await commons.pager({
+        params.jql += ' ORDER BY updated';
+
+        const issues = await commons.getAPINoPagination({
             endpoint: `${apiUrl}search`,
             credentials: auth,
             key: 'issues',
             params
         });
+        context.log({ stage: 'searchUpdatedIssueResponse', issues });
+
 
         if (Array.isArray(issues) && issues.length > 0) {
-            const promises = [];
-            issues.forEach(issue => {
-                promises.push(context.sendJson(issue, 'issue'));
-            });
-            await Promise.all(promises);
+            const issuesArr = issues.reverse();
+            for (const issue of issuesArr) {
+                await context.sendJson(issue, 'issue');
+            }
         }
-
-        return context.saveState({ updatedTime: current });
     }
 };
