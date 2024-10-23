@@ -14,10 +14,11 @@ module.exports = {
 
         const now = Date.now();
         const nowMinusMinute = now - 60000;
+        const nowMinusX = now - 61000;
 
         const params = {
             maxResults: 1000,
-            jql: `updated >= ${nowMinusMinute} AND created < ${now}`
+            jql: `updated >= ${nowMinusMinute} AND created < ${nowMinusX}`
         };
 
         if (project) {
@@ -32,8 +33,6 @@ module.exports = {
             key: 'issues',
             params
         });
-        context.log({ stage: 'searchUpdatedIssueResponse', issues });
-
 
         if (Array.isArray(issues) && issues.length > 0) {
             const issuesArr = issues.reverse();
