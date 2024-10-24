@@ -38,8 +38,6 @@ module.exports = {
             params
         });
 
-        context.log({ step: 'Updated Issues', issues });
-
         let latestIssueUpdateDate;
         if (Array.isArray(issues) && issues.length > 0) {
             const issuesFiltered = issues.filter(i => {

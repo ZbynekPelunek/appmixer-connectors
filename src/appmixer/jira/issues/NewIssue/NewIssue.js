@@ -38,8 +38,6 @@ module.exports = {
             params
         });
 
-        context.log({ step: 'Created Issues', issues });
-
         let latestIssueCreateDate;
         if (Array.isArray(issues) && issues.length > 0) {
             const latestIssueIndex = issues.length - 1;
