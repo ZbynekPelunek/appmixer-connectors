@@ -12,20 +12,24 @@ module.exports = {
         const { profileInfo: { apiUrl }, auth } = context;
         const { project } = context.properties;
 
+        let { updatedTime } = await context.loadState();
+
         const now = Date.now();
-        const nowMinusMinute = now - 60000;
-        const updatedMinusSecond = now - 61000;
+
+        if (!updatedTime) {
+            updatedTime = now;
+        }
 
         const params = {
             maxResults: 1000,
-            jql: `updated >= ${nowMinusMinute} AND created < ${updatedMinusSecond}`
+            jql: `updated > ${updatedTime}`
         };
 
         if (project) {
             params.jql += ` AND project = "${project}"`;
         }
 
-        params.jql += ' ORDER BY updated';
+        params.jql += ' ORDER BY updated ASC';
 
         const issues = await commons.getAPINoPagination({
             endpoint: `${apiUrl}search`,
@@ -33,14 +37,21 @@ module.exports = {
             key: 'issues',
             params
         });
-        context.log({ stage: 'searchUpdatedIssueResponse', issues });
 
+        context.log({ step: 'Updated Issues', issues });
 
+        let latestIssueUpdateDate;
         if (Array.isArray(issues) && issues.length > 0) {
-            const issuesArr = issues.reverse();
-            for (const issue of issuesArr) {
+            const issuesFiltered = issues.filter(i => {
+                return (new Date(i.fields.updated).valueOf() - new Date(i.fields.created).valueOf()) > 1000;
+            });
+            const latestIssueIndex = issuesFiltered.length - 1;
+            latestIssueUpdateDate = new Date(issuesFiltered[latestIssueIndex].fields.updated).valueOf();
+            for (const issue of issuesFiltered) {
                 await context.sendJson(issue, 'issue');
             }
         }
+
+        return context.saveState({ updatedTime: latestIssueUpdateDate ?? now });
     }
 };

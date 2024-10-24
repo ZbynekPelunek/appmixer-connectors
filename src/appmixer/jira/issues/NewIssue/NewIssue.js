@@ -12,19 +12,24 @@ module.exports = {
         const { profileInfo: { apiUrl }, auth } = context;
         const { project } = context.properties;
 
+        let { createdTime } = await context.loadState();
+
         const now = Date.now();
-        const nowMinusMinute = now - 60000;
+
+        if (!createdTime) {
+            createdTime = now;
+        }
 
         const params = {
             maxResults: 1000,
-            jql: `created >= ${nowMinusMinute}`
+            jql: `created > ${createdTime}`
         };
 
         if (project) {
             params.jql += ` AND project = "${project}"`;
         }
 
-        params.jql += ' ORDER BY created';
+        params.jql += ' ORDER BY created ASC';
 
         const issues = await commons.getAPINoPagination({
             endpoint: `${apiUrl}search`,
@@ -33,11 +38,17 @@ module.exports = {
             params
         });
 
+        context.log({ step: 'Created Issues', issues });
+
+        let latestIssueCreateDate;
         if (Array.isArray(issues) && issues.length > 0) {
-            const issuesArr = issues.reverse();
-            for (const issue of issuesArr) {
+            const latestIssueIndex = issues.length - 1;
+            latestIssueCreateDate = new Date(issues[latestIssueIndex].fields.created).valueOf();
+            for (const issue of issues) {
                 await context.sendJson(issue, 'issue');
             }
         }
+
+        return context.saveState({ createdTime: latestIssueCreateDate ?? now });
     }
 };
